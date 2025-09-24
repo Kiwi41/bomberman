@@ -30,8 +30,10 @@ for y in range(grille_hauteur):
 joueur_x, joueur_y = 1, 1
 grille[joueur_y][joueur_x] = JOUEUR
 
-# Balle (une seule à la fois pour simplifier)
-balle = None  # (x, y, temps_pose)
+# Liste des balles actives : chaque balle = (x, y, temps_pose)
+balles = []
+# Liste des explosions à effacer : chaque explosion = (x, y, temps_explosion)
+explosions = []
 
 def afficher_grille():
     os.system('clear')
@@ -63,35 +65,44 @@ def detruire_autour(x, y):
         if 0 <= nx < grille_largeur and 0 <= ny < grille_hauteur:
             if grille[ny][nx] == MUR_DESTRUCTIBLE:
                 grille[ny][nx] = EXPLOSION
+            elif grille[ny][nx] == BOMBE:
+                # Explosion en chaîne
+                for i, (bx, by, t) in enumerate(balles):
+                    if bx == nx and by == ny:
+                        balles.pop(i)
+                        grille[ny][nx] = EXPLOSION
+                        explosions.append((nx, ny, time.time()))
+                        detruire_autour(nx, ny)
+                        break
 
 def main():
-    global balle
+    global balles
     afficher_grille()
-    derniere_explosion = None
     while True:
-        # Gestion du timer de la balle
         maintenant = time.time()
-        if balle:
-            bx, by, t_pose = balle
-            # Balle explose après 2 secondes
+        # Gestion des explosions de balles
+        nouvelles_explosions = []
+        nouvelles_balles = []
+        for bx, by, t_pose in balles:
             if maintenant - t_pose >= 2:
                 grille[by][bx] = EXPLOSION
                 detruire_autour(bx, by)
-                derniere_explosion = (bx, by, maintenant)
-                balle = None
-                afficher_grille()
-        # Efface l'explosion après 0.5s
-        if derniere_explosion:
-            bx, by, t_expl = derniere_explosion
+                explosions.append((bx, by, maintenant))
+            else:
+                nouvelles_balles.append((bx, by, t_pose))
+        balles = nouvelles_balles
+        # Efface les explosions après 0.5s
+        nouvelles_explosions = []
+        for ex, ey, t_expl in explosions:
             if maintenant - t_expl >= 0.5:
-                # Efface explosion centrale et autour
                 for dx, dy in [(-1,0), (1,0), (0,-1), (0,1), (0,0)]:
-                    nx, ny = bx+dx, by+dy
+                    nx, ny = ex+dx, ey+dy
                     if 0 <= nx < grille_largeur and 0 <= ny < grille_hauteur:
                         if grille[ny][nx] == EXPLOSION:
                             grille[ny][nx] = VIDE
-                derniere_explosion = None
-                afficher_grille()
+            else:
+                nouvelles_explosions.append((ex, ey, t_expl))
+        explosions[:] = nouvelles_explosions
 
         touche = lire_touche().lower()
         rafraichir = False
@@ -108,9 +119,9 @@ def main():
             deplacer_joueur(1, 0)
             rafraichir = True
         elif touche == ' ':  # Espace pour poser une balle
-            if not balle:
-                # Pose la balle à la position du joueur
-                balle = (joueur_x, joueur_y, time.time())
+            # Une seule balle par case
+            if not any((bx == joueur_x and by == joueur_y) for bx, by, _ in balles):
+                balles.append((joueur_x, joueur_y, time.time()))
                 grille[joueur_y][joueur_x] = BOMBE
                 rafraichir = True
         elif touche == 'x':
