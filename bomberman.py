@@ -76,9 +76,10 @@ def detruire_autour(x, y):
                         break
 
 def main():
-    global balles
+    global balles, joueur_x, joueur_y
     afficher_grille()
-    while True:
+    joueur_vivant = True
+    while joueur_vivant:
         maintenant = time.time()
         # Gestion des explosions de balles
         nouvelles_explosions = []
@@ -104,6 +105,13 @@ def main():
                 nouvelles_explosions.append((ex, ey, t_expl))
         explosions[:] = nouvelles_explosions
 
+        # Vérifie si le joueur est sur une explosion
+        if grille[joueur_y][joueur_x] == EXPLOSION:
+            afficher_grille()
+            print("Vous avez perdu ! Le joueur a été touché par une explosion.")
+            joueur_vivant = False
+            break
+
         touche = lire_touche().lower()
         rafraichir = False
         if touche == 'z':
@@ -119,7 +127,6 @@ def main():
             deplacer_joueur(1, 0)
             rafraichir = True
         elif touche == ' ':  # Espace pour poser une balle
-            # Une seule balle par case
             if not any((bx == joueur_x and by == joueur_y) for bx, by, _ in balles):
                 balles.append((joueur_x, joueur_y, time.time()))
                 grille[joueur_y][joueur_x] = BOMBE
