@@ -34,6 +34,8 @@ grille[joueur_y][joueur_x] = JOUEUR
 balles = []
 # Liste des explosions à effacer : chaque explosion = (x, y, temps_explosion)
 explosions = []
+# Liste des ennemis : chaque ennemi = (x, y)
+ennemis = []
 
 def afficher_grille():
     os.system('clear')
@@ -75,8 +77,37 @@ def detruire_autour(x, y):
                         detruire_autour(nx, ny)
                         break
 
+# Placement aléatoire des ennemis
+def placer_ennemis(nb=2):
+    global ennemis
+    libres = [(x, y) for y in range(1, grille_hauteur-1) for x in range(1, grille_largeur-1)
+              if grille[y][x] == VIDE and (x, y) != (joueur_x, joueur_y)]
+    ennemis = random.sample(libres, min(nb, len(libres)))
+    for ex, ey in ennemis:
+        grille[ey][ex] = 'E'
+
+# Déplacement aléatoire des ennemis
+def deplacer_ennemis():
+    global ennemis
+    nouveaux = []
+    for ex, ey in ennemis:
+        grille[ey][ex] = VIDE
+        directions = [(0,1),(0,-1),(1,0),(-1,0)]
+        random.shuffle(directions)
+        for dx, dy in directions:
+            nx, ny = ex+dx, ey+dy
+            if 0 <= nx < grille_largeur and 0 <= ny < grille_hauteur and grille[ny][nx] == VIDE:
+                nouveaux.append((nx, ny))
+                break
+        else:
+            nouveaux.append((ex, ey))
+    ennemis = nouveaux
+    for ex, ey in ennemis:
+        grille[ey][ex] = 'E'
+
 def main():
-    global balles, joueur_x, joueur_y
+    global balles, joueur_x, joueur_y, ennemis
+    placer_ennemis(2)
     afficher_grille()
     joueur_vivant = True
     while joueur_vivant:
@@ -104,6 +135,17 @@ def main():
             else:
                 nouvelles_explosions.append((ex, ey, t_expl))
         explosions[:] = nouvelles_explosions
+
+        # Déplacement des ennemis
+        deplacer_ennemis()
+        # Si un ennemi touche le joueur
+        if any((ex == joueur_x and ey == joueur_y) for ex, ey in ennemis):
+            afficher_grille()
+            print("Vous avez perdu ! Un ennemi vous a touché.")
+            joueur_vivant = False
+            break
+        # Si un ennemi est sur une explosion, il meurt
+        ennemis = [(ex, ey) for ex, ey in ennemis if grille[ey][ex] != EXPLOSION]
 
         # Vérifie si le joueur est sur une explosion
         if grille[joueur_y][joueur_x] == EXPLOSION:
